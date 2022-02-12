@@ -1,42 +1,57 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "../hooks/useQuery";
 import { get } from "../utils/httpClient";
 import { Loader } from "./Loader";
 import { MovieCard } from "./MovieCard";
 import styles from "./MoviesGrid.module.css";
+import InfiniteScroll from 'react-infinite-scroll-component';
+import { Empty } from "./Empty";
 
-export const MoviesGrid = () => {
+
+export const MoviesGrid = ({search}) => {
   const [movies, setMovies] = useState([]);
   const [isloading, setIsloading] = useState(true);
-  const search= useQuery().get("search");
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+
+
   useEffect(() => {
     setIsloading(true);
     const searchUrl = (search)
-      ? `/search/movie?query=${search}`
-      :"/discover/movie";
+      ? `/search/movie?query=${search}&page=${page}`
+      :`/discover/movie?page=${page}`;
     get(searchUrl)
       .then(
         newMovies => {
-          setMovies(newMovies.results);
+          setMovies((prevMovies) => [...prevMovies, ...newMovies.results]);
           setIsloading(false);
+          setHasMore(newMovies.page < newMovies.total_pages);
         }
       )
-  }, [search]);
+  }, [search, page]);
+
+  if(!isloading &&  movies.length === 0)
+    return <Empty/>
+
 
   return (
-  <>
-    {(isloading)
-        ?<Loader/>
-        :<ul className={styles.moviesGrid}>
-            {movies.length > 0 && movies.map(el => 
-                <MovieCard 
-                    key = {el.id} 
-                    movie={el}       
-                />)}
-        </ul>
-    }
-  </>
-  
-    
+    <InfiniteScroll
+      dataLength={movies.length}
+      next={()=>{setPage( prevPage => prevPage + 1)}}
+      hasMore={hasMore}
+      loader={<Loader/>}
+      endMessage={
+        <p style={{ textAlign: 'center', fontSize: "2rem" }}>
+          <b>Yay! You have seen it all</b>
+        </p>
+      }
+    >
+      <ul className={styles.moviesGrid}>
+          {movies.map(el => 
+              <MovieCard 
+                  key = {el.id} 
+                  movie={el}       
+              />)}
+      </ul>
+    </InfiniteScroll>    
   )
 }
